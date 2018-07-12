@@ -15,15 +15,16 @@ limitations under the License.
 """
 
 from pathlib import Path
+import tarfile
+import gzip
+import zipfile
+import re
+import shutil
+import secrets
 
 import requests
 from tqdm import tqdm
-import tarfile
-import gzip
 import numpy as np
-import re
-import zipfile
-import shutil
 
 from deeppavlov.core.common.log import get_logger
 
@@ -33,6 +34,14 @@ log = get_logger(__name__)
 _MARK_DONE = '.done'
 
 tqdm.monitor_interval = 0
+
+
+def get_download_token():
+    token_file = Path.home() / '.deeppavlov'
+    if not token_file.exists():
+        token_file.write_text(secrets.token_urlsafe(32), encoding='utf8')
+
+    return token_file.read_text(encoding='utf8').strip()
 
 
 def download(dest_file_path, source_url, force_download=True):
@@ -58,7 +67,8 @@ def download(dest_file_path, source_url, force_download=True):
     if force_download or not first_dest_path.exists():
         first_dest_path.parent.mkdir(parents=True, exist_ok=True)
 
-        r = requests.get(source_url, stream=True)
+        token_header = {'dp-token': get_download_token()}
+        r = requests.get(source_url, stream=True, headers=token_header)
         total_length = int(r.headers.get('content-length', 0))
 
         with first_dest_path.open('wb') as f:
